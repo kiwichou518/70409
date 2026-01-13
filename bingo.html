@@ -1738,6 +1738,8 @@
                                             setRedrawingId(null);
                                             // 播放中獎音效
                                             if (effects.sound && soundEngineRef.current) soundEngineRef.current.playWin();
+                                            // 拋彩帶特效
+                                            triggerConfetti();
 
                                             // 3. 更新目前顯示的贏家列表
                                             setCurrentWinners(prev => prev.map(w => w.id === winnerToVoid.id ? newWinner : w));
