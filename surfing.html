@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Surfing Game 🏄‍♂️</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0099cc;
+            /* Deep Ocean Blue */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            /* Prevent pull-to-refresh on mobile */
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        #uiLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #scoreDisplay,
+        #ammoDisplay {
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            text-align: left;
+        }
+
+        #startScreen,
+        #gameOverScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+        }
+
+        h1 {
+            margin: 0 0 20px 0;
+            color: #006699;
+            font-size: 3rem;
+        }
+
+        p {
+            font-size: 1.2rem;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            background: #ff5252;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #controlsHint {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="uiLayer">
+        <div id="scoreDisplay">SCORE: 0</div>
+        <div id="ammoDisplay">ROCKETS: 0</div>
+    </div>
+
+    <div id="startScreen">
+        <h1>SURFING HERO 🏄‍♂️</h1>
+        <p>Avoid rocks 🪨 and sharks 🦈!<br>Collect barrels 🛢️ to shoot rockets 🚀!</p>
+        <button id="startBtn">START SURFING</button>
+        <div style="margin-top: 20px; font-size: 0.9rem; color: #888;">Use Arrows/WASD to Move<br>SPACE to Shoot</div>
+    </div>
+
+    <div id="gameOverScreen" class="hidden">
+        <h1>WIPEOUT! 🌊</h1>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <button id="restartBtn">TRY AGAIN</button>
+    </div>
+
+    <!-- Shoot Button for Mobile -->
+    <button id="shootBtn"
+        style="position: absolute; bottom: 20px; right: 20px; width: 80px; height: 80px; border-radius: 50%; font-size: 2rem; display: none; z-index: 100;">🚀</button>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('scoreDisplay');
+        const ammoEl = document.getElementById('ammoDisplay');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const finalScoreEl = document.getElementById('finalScore');
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const shootBtn = document.getElementById('shootBtn');
+
+        // Game State
+        let isPlaying = false;
+        let score = 0;
+        let gameSpeed = 5;
+        let animationId;
+        let lastTime = 0;
+
+        // Assets (Emojis)
+        const PLAYER_EMOJI = '🏄‍♂️';
+        const ROCK_EMOJI = '🪨';
+        const SHARK_EMOJI = '🦈';
+        const WAVE_EMOJI = '🌊';
+        const AMMO_EMOJI = '🛢️';
+        const ROCKET_EMOJI = '🚀';
+        const EXPLOSION_EMOJI = '💥';
+        const BRICK_EMOJI = '🧱';
+
+        // Responsiveness
+        function resize() {
+            canvas.width = window.innerWidth > 600 ? 600 : window.innerWidth; // Max width for gameplay
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Classes
+        class SoundManager {
+            constructor() {
+                this.ctx = null;
+                this.initialized = false;
+            }
+
+            init() {
+                if (this.initialized) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.initialized = true;
+            }
+
+            playOscillator(type, freqStart, freqEnd, duration, vol = 0.1) {
+                if (!this.initialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(freqStart, this.ctx.currentTime);
+                if (freqEnd) {
+                    osc.frequency.exponentialRampToValueAtTime(freqEnd, this.ctx.currentTime + duration);
+                }
+
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playStart() {
+                this.playOscillator('sine', 200, 600, 0.4, 0.1);
+                setTimeout(() => this.playOscillator('sine', 400, 800, 0.4, 0.1), 100);
+            }
+
+            playScore() {
+                this.playOscillator('sine', 880, null, 0.1, 0.05);
+            }
+
+            playMove() {
+                // Random pitch to sound like splashing water
+                const freq = 100 + Math.random() * 50;
+                this.playOscillator('triangle', freq, freq - 50, 0.1, 0.03);
+            }
+
+            playGameOver() {
+                this.playOscillator('sawtooth', 300, 50, 0.8, 0.1);
+            }
+
+            playCollect() {
+                this.playOscillator('sine', 600, 1200, 0.2, 0.1);
+            }
+
+            playShoot() {
+                this.playOscillator('square', 200, 100, 0.15, 0.1);
+            }
+
+            playExplosion() {
+                // Noise buffer would be better, but simulated with low freq saw
+                this.playOscillator('sawtooth', 100, 10, 0.3, 0.2);
+            }
+        }
+
+        class Surfer {
+            constructor() {
+                this.width = 50;
+                this.height = 50;
+                this.x = canvas.width / 2 - this.width / 2;
+                this.y = canvas.height - 150; // Fixed vertical position
+                this.speed = 0;
+                this.speedY = 0;
+                this.maxSpeed = 8;
+                this.friction = 0.92;
+                this.acceleration = 1;
+                this.ammo = 0;
+                this.invincibleEndTime = 0;
+            }
+
+            shoot() {
+                if (this.ammo > 0) {
+                    this.ammo--;
+                    audio.playShoot();
+                    projectiles.push(new Projectile(this.x + this.width / 2, this.y));
+                    updateUI();
+                }
+            }
+
+            isInvincible() {
+                return Date.now() < this.invincibleEndTime;
+            }
+
+            update(input) {
+                // Horizontal Movement
+                if (input.keys.includes('ArrowLeft') || input.keys.includes('a')) {
+                    this.speed -= this.acceleration;
+                    if (Math.random() < 0.1) audio.playMove();
+                }
+                if (input.keys.includes('ArrowRight') || input.keys.includes('d')) {
+                    this.speed += this.acceleration;
+                    if (Math.random() < 0.1) audio.playMove();
+                }
+
+                // Vertical Movement
+                if (input.keys.includes('ArrowUp') || input.keys.includes('w')) {
+                    this.speedY -= this.acceleration;
+                    if (Math.random() < 0.1) audio.playMove();
+                }
+                if (input.keys.includes('ArrowDown') || input.keys.includes('s')) {
+                    this.speedY += this.acceleration;
+                    if (Math.random() < 0.1) audio.playMove();
+                }
+
+                // Touch support mimics keys - simplified
+                if (input.touchX !== null) {
+                    // Horizontal
+                    if (input.touchX < this.x) {
+                        this.speed -= this.acceleration;
+                        if (Math.random() < 0.1) audio.playMove();
+                    }
+                    if (input.touchX > this.x + this.width) {
+                        this.speed += this.acceleration;
+                        if (Math.random() < 0.1) audio.playMove();
+                    }
+
+                    // Vertical (Optional nice-to-have since we added touchY)
+                    if (input.touchY !== null) {
+                        if (input.touchY < this.y) {
+                            this.speedY -= this.acceleration;
+                            if (Math.random() < 0.1) audio.playMove();
+                        }
+                        if (input.touchY > this.y + this.height) {
+                            this.speedY += this.acceleration;
+                            if (Math.random() < 0.1) audio.playMove();
+                        }
+                    }
+                }
+
+                // Physics
+                this.speed *= this.friction;
+                this.speedY *= this.friction;
+                this.x += this.speed;
+                this.y += this.speedY;
+
+                // Boundaries
+                if (this.x < 0) {
+                    this.x = 0;
+                    this.speed = 0;
+                }
+                if (this.x > canvas.width - this.width) {
+                    this.x = canvas.width - this.width;
+                    this.speed = 0;
+                }
+                // Vertical Boundaries (Don't let them go too high up to avoid instant death from spawning obstacles)
+                if (this.y < 100) {
+                    this.y = 100;
+                    this.speedY = 0;
+                }
+                if (this.y > canvas.height - this.height) {
+                    this.y = canvas.height - this.height;
+                    this.speedY = 0;
+                }
+            }
+
+            draw(context) {
+                context.font = '50px Arial';
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                // Save state to handle flipping if moving left? (Optional polish)
+                if (this.isInvincible()) {
+                    context.save();
+                    context.globalAlpha = 0.7 + Math.sin(Date.now() / 100) * 0.3; // Flashing effect
+                    context.shadowColor = 'gold';
+                    context.shadowBlur = 20;
+                    context.fillText(PLAYER_EMOJI, this.x + this.width / 2, this.y + this.height / 2);
+                    context.restore();
+                } else {
+                    context.fillText(PLAYER_EMOJI, this.x + this.width / 2, this.y + this.height / 2);
+                }
+
+                // Hitbox debug
+                // context.strokeRect(this.x, this.y, this.width, this.height);
+            }
+        }
+
+        class Obstacle {
+            constructor() {
+                this.width = 40;
+                this.height = 40;
+                this.x = Math.random() * (canvas.width - this.width);
+                this.y = -100; // Start above screen
+                this.type = Math.random() > 0.8 ? 'shark' : 'rock'; // 20% shark
+                this.markedForDeletion = false;
+                this.speedY = gameSpeed;
+                // Sharks might move slightly?
+                this.speedX = this.type === 'shark' ? (Math.random() - 0.5) * 2 : 0;
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+
+                // Bounce off walls for sharks
+                if (this.type === 'shark') {
+                    if (this.x < 0 || this.x > canvas.width - this.width) this.speedX *= -1;
+                }
+
+                if (this.y > canvas.height) {
+                    this.markedForDeletion = true;
+                    score++;
+                    audio.playScore();
+                    scoreEl.innerText = 'SCORE: ' + score;
+                    // Increase difficulty
+                    if (score % 10 === 0) gameSpeed += 0.5;
+                }
+            }
+
+            draw(context) {
+                context.font = '40px Arial';
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                const emoji = this.type === 'shark' ? SHARK_EMOJI : ROCK_EMOJI;
+
+                // Flip shark if moving left
+                context.save();
+                if (this.type === 'shark' && this.speedX < 0) {
+                    context.translate(this.x + this.width / 2, this.y + this.height / 2);
+                    context.scale(-1, 1);
+                    context.fillText(emoji, 0, 0);
+                } else {
+                    context.fillText(emoji, this.x + this.width / 2, this.y + this.height / 2);
+                }
+                context.restore();
+
+                // Hitbox debug
+                // context.strokeRect(this.x, this.y, this.width, this.height);
+            }
+        }
+
+        class BackgroundWave {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = -50;
+                this.size = Math.random() * 20 + 20;
+                this.speedY = gameSpeed * 0.8; // Slower than obstacles for depth
+                this.markedForDeletion = false;
+                this.opacity = Math.random() * 0.5 + 0.1;
+            }
+            update() {
+                this.y += this.speedY;
+                if (this.y > canvas.height) this.markedForDeletion = true;
+            }
+            draw(context) {
+                context.globalAlpha = this.opacity;
+                context.font = `${this.size}px Arial`;
+                context.fillText(WAVE_EMOJI, this.x, this.y);
+                context.globalAlpha = 1.0;
+            }
+        }
+
+        // Input Handler
+        class InputHandler {
+            constructor() {
+                this.keys = [];
+                this.touchX = null;
+                this.touchY = null;
+
+                window.addEventListener('keydown', e => {
+                    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown' ||
+                        e.key === 'a' || e.key === 'd' || e.key === 'w' || e.key === 's') && this.keys.indexOf(e.key) === -1) {
+                        this.keys.push(e.key);
+                    }
+                    if (e.key === ' ' || e.code === 'Space') {
+                        if (isPlaying) player.shoot();
+                    }
+                });
+
+                window.addEventListener('keyup', e => {
+                    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown' ||
+                        e.key === 'a' || e.key === 'd' || e.key === 'w' || e.key === 's') {
+                        this.keys.splice(this.keys.indexOf(e.key), 1);
+                    }
+                });
+
+                // Touch Events
+                window.addEventListener('touchstart', e => {
+                    this.touchX = e.touches[0].clientX;
+                    this.touchY = e.touches[0].clientY;
+                });
+                window.addEventListener('touchmove', e => {
+                    this.touchX = e.touches[0].clientX;
+                    this.touchY = e.touches[0].clientY;
+                });
+                window.addEventListener('touchend', () => {
+                    this.touchX = null;
+                    this.touchY = null;
+                });
+
+                // Shoot Button
+                shootBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); // Prevent ghost click
+                    e.stopPropagation();
+                    if (isPlaying) player.shoot();
+                });
+                shootBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (isPlaying) player.shoot();
+                });
+            }
+        }
+
+        class PowerUp {
+            constructor() {
+                this.width = 40;
+                this.height = 40;
+                this.x = Math.random() * (canvas.width - this.width);
+                this.y = -100;
+                this.speedY = gameSpeed;
+                this.markedForDeletion = false;
+            }
+            update() {
+                this.y += this.speedY;
+                if (this.y > canvas.height) this.markedForDeletion = true;
+            }
+            draw(context) {
+                context.font = '40px Arial';
+                context.fillText(AMMO_EMOJI, this.x + this.width / 2, this.y + this.height / 2);
+            }
+        }
+
+        class Brick {
+            constructor() {
+                this.width = 40;
+                this.height = 40;
+                this.x = Math.random() * (canvas.width - this.width);
+                this.y = -100;
+                this.speedY = gameSpeed;
+                this.markedForDeletion = false;
+            }
+            update() {
+                this.y += this.speedY;
+                if (this.y > canvas.height) this.markedForDeletion = true;
+            }
+            draw(context) {
+                context.font = '40px Arial';
+                context.fillText(BRICK_EMOJI, this.x + this.width / 2, this.y + this.height / 2);
+            }
+        }
+
+        class Projectile {
+            constructor(x, y) {
+                this.width = 20;
+                this.height = 30;
+                this.x = x - this.width / 2;
+                this.y = y;
+                this.speedY = -15; // Fast upward
+                this.markedForDeletion = false;
+            }
+            update() {
+                this.y += this.speedY;
+                if (this.y < -50) this.markedForDeletion = true;
+            }
+            draw(context) {
+                context.font = '30px Arial';
+                context.fillText(ROCKET_EMOJI, this.x + this.width / 2, this.y + this.height / 2);
+            }
+        }
+
+        class Explosion {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.timer = 0;
+                this.maxTimer = 20;
+                this.markedForDeletion = false;
+            }
+            update() {
+                this.timer++;
+                if (this.timer > this.maxTimer) this.markedForDeletion = true;
+            }
+            draw(context) {
+                context.font = '50px Arial';
+                context.fillText(EXPLOSION_EMOJI, this.x, this.y);
+            }
+        }
+
+        function checkCollision(obj1, obj2) {
+            // Simple circle collision is often better for emojis than rect
+            const dx = (obj1.x + obj1.width / 2) - (obj2.x + obj2.width / 2);
+            const dy = (obj1.y + obj1.height / 2) - (obj2.y + obj2.height / 2);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Combined radius
+            const collisionRadius = (obj1.width + obj2.width) / 2 * 0.7; // 0.7 forgiveness factor
+
+            return distance < collisionRadius;
+        }
+
+        // Main Game Variables
+        let player;
+        let input;
+        let obstacles = [];
+        let waves = [];
+        let powerUps = [];
+        let bricks = [];
+        let projectiles = [];
+        let explosions = [];
+        let obstacleTimer = 0;
+        let obstacleInterval = 1000;
+        let waveTimer = 0;
+        let powerUpTimer = 0;
+        let brickTimer = 0;
+        const audio = new SoundManager();
+
+        function updateUI() {
+            scoreEl.innerText = 'SCORE: ' + score;
+            ammoEl.innerText = 'ROCKETS: ' + player.ammo;
+
+            if (player && player.isInvincible()) {
+                const timeLeft = Math.ceil((player.invincibleEndTime - Date.now()) / 1000);
+                scoreEl.innerHTML = `SCORE: ${score} <span style="color: gold; text-shadow: 0 0 5px orange;">(INVINCIBLE: ${timeLeft}s)</span>`;
+            }
+
+            // Show shoot button on mobile/touch if playing
+            if (isPlaying && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+                shootBtn.style.display = 'block';
+            } else {
+                shootBtn.style.display = 'none';
+            }
+        }
+
+        function startGame() {
+            audio.init();
+            audio.playStart();
+            if (animationId) cancelAnimationFrame(animationId);
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+
+            // Reset Game
+            player = new Surfer();
+            input = new InputHandler();
+            obstacles = [];
+            waves = [];
+            powerUps = [];
+            bricks = [];
+            projectiles = [];
+            explosions = [];
+            score = 0;
+            gameSpeed = 5;
+            updateUI();
+            isPlaying = true;
+            lastTime = 0;
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            audio.playGameOver();
+            finalScoreEl.innerText = score;
+            gameOverScreen.classList.remove('hidden');
+            shootBtn.style.display = 'none';
+        }
+
+        function animate(timeStamp) {
+            if (!isPlaying) return;
+            const deltaTime = timeStamp - lastTime;
+            lastTime = timeStamp;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update Speed based on score
+            if (isPlaying) {
+                // Player
+                player.update(input);
+
+                player.draw(ctx);
+
+                if (player.isInvincible()) updateUI();
+
+                // Obstacles
+                if (obstacleTimer > obstacleInterval) {
+                    obstacles.push(new Obstacle());
+                    obstacleTimer = 0;
+                    obstacleInterval = Math.max(400, 1000 - score * 10);
+                } else {
+                    obstacleTimer += deltaTime || 16;
+                }
+
+                obstacles.forEach(obj => {
+                    obj.speedY = gameSpeed;
+                    obj.update();
+                    obj.draw(ctx);
+                    if (checkCollision(player, obj)) {
+                        if (player.isInvincible()) {
+                            obj.markedForDeletion = true;
+                            audio.playExplosion();
+                            explosions.push(new Explosion(obj.x + obj.width / 2, obj.y + obj.height / 2));
+                            score += 5;
+                            updateUI();
+                        } else {
+                            gameOver();
+                        }
+                    }
+                });
+                obstacles = obstacles.filter(obj => !obj.markedForDeletion);
+
+                // PowerUps
+                if (powerUpTimer > 5000) { // Spawn every 5s roughly
+                    if (Math.random() < 0.4) powerUps.push(new PowerUp());
+                    powerUpTimer = 0;
+                } else {
+                    powerUpTimer += deltaTime || 16;
+                }
+                powerUps.forEach(p => {
+                    p.speedY = gameSpeed;
+                    p.update();
+                    p.draw(ctx);
+                    if (checkCollision(player, p)) {
+                        p.markedForDeletion = true;
+                        player.ammo += 3;
+                        audio.playCollect();
+                        updateUI();
+                    }
+                });
+                powerUps = powerUps.filter(p => !p.markedForDeletion);
+
+                // Bricks (Invincibility)
+                if (brickTimer > 15000) {
+                    if (Math.random() < 0.3) bricks.push(new Brick());
+                    brickTimer = 0;
+                } else {
+                    brickTimer += deltaTime || 16;
+                }
+                bricks.forEach(b => {
+                    b.speedY = gameSpeed;
+                    b.update();
+                    b.draw(ctx);
+                    if (checkCollision(player, b)) {
+                        b.markedForDeletion = true;
+                        player.invincibleEndTime = Date.now() + 20000; // 20 Seconds
+                        audio.playCollect(); // reusing collect sound or add new one
+                        updateUI();
+                    }
+                });
+                bricks = bricks.filter(b => !b.markedForDeletion);
+
+                // Projectiles
+                projectiles.forEach(proj => {
+                    proj.update();
+                    proj.draw(ctx);
+
+                    // Check collision with obstacles
+                    obstacles.forEach(obs => {
+                        if (!obs.markedForDeletion && !proj.markedForDeletion && checkCollision(proj, obs)) {
+                            obs.markedForDeletion = true;
+                            proj.markedForDeletion = true;
+                            audio.playExplosion();
+                            explosions.push(new Explosion(obs.x + obs.width / 2, obs.y + obs.height / 2));
+                            score += 5; // Bonus for destroying
+                            updateUI();
+                        }
+                    });
+                });
+                projectiles = projectiles.filter(p => !p.markedForDeletion);
+
+                // Explosions
+                explosions.forEach(exp => {
+                    exp.update();
+                    exp.draw(ctx);
+                });
+                explosions = explosions.filter(exp => !exp.markedForDeletion);
+
+                // Background Waves
+                if (waveTimer > 200) {
+                    waves.push(new BackgroundWave());
+                    waveTimer = 0;
+                } else {
+                    waveTimer += deltaTime || 16;
+                }
+                waves.forEach(wave => {
+                    wave.update();
+                    wave.draw(ctx);
+                });
+                waves = waves.filter(wave => !wave.markedForDeletion);
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+       
+    <meta charset="UTF-8">
+       
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>EVERLUCK - Enterprise Edition (v3.2 Final Polish)</title>
+
+       
+    <!-- 
+        外部相依套件：
+        - TailwindCSS: 快速開發 UI 的 CSS 框架。
+        - React & ReactDOM: 建構使用者介面的核心函式庫。
+        - Babel: 在瀏覽器中將 JSX 編譯為 JavaScript (用於獨立運行模式)。
+        - Framer Motion: 用於增強動畫與轉場效果。
+        - PapaParse: 用於解析 CSV 檔案 (匯入候選人/獎項)。
+        - Canvas Confetti: 用於慶祝時的彩帶效果。
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        /**
+         * Tailwind 設定
+         * 定義符合活動主題 (經典、新年、科技風等) 的自訂顏色與字型。
+         * 擴充預設主題，加入 'shine' 和 'pulse-fast' 等自訂動畫。
+         */
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        glass: "var(--glass)",
+                        glassBorder: "var(--glass-border)",
+                        gold: "var(--gold)",
+                        goldLight: "var(--gold-light)",
+                        primary: "var(--primary)",
+                        secondary: "var(--secondary)",
+                        accent: "var(--accent)",
+                        bgMain: "var(--bg-main)",
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Microsoft JhengHei', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    animation: {
+                        'shine': 'shine 2s linear infinite',
+                        'pulse-fast': 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        shine: {
+                            '0%': { backgroundPosition: '200% center' },
+                            '100%': { backgroundPosition: '-200% center' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+       
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+       
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+       
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+       
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+       
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+       
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            /* Default Theme (Classic) */
+            --bg-color: #6B0505;
+            --bg-gradient: radial-gradient(circle at 50% 0%, #800020 0%, transparent 60%), radial-gradient(circle at 0% 100%, #B22222 0%, transparent 50%), radial-gradient(circle at 100% 100%, #5c0015 0%, transparent 50%);
+            --text-color: #fff8e1;
+            --glass: rgba(43, 2, 2, 0.6);
+            --glass-border: rgba(255, 215, 0, 0.2);
+            --gold: #FFD700;
+            --gold-light: #FFE57F;
+            --primary: #800020;
+            --secondary: #B22222;
+            --accent: #FFD700;
+        }
+
+        /* CNY Red Theme */
+        [data-theme='cny'] {
+            --bg-color: #8B0000;
+            --bg-gradient: linear-gradient(135deg, #8B0000 0%, #FF0000 50%, #8B0000 100%);
+            --text-color: #FFF;
+            --glass: rgba(255, 0, 0, 0.2);
+            --glass-border: rgba(255, 215, 0, 0.5);
+            --gold: #FFD700;
+            --gold-light: #FFFACD;
+            --primary: #CC0000;
+            --secondary: #FF4500;
+            --accent: #FFFF00;
+        }
+
+        /* Moon Gold Theme - Adjusted for "Golden" feel */
+        [data-theme='moon'] {
+            --bg-color: #1a1000;
+            --bg-gradient: radial-gradient(circle at top center, #5D4037 0%, #1a1000 80%);
+            --text-color: #FFF8E1;
+            --glass: rgba(62, 39, 35, 0.4);
+            --glass-border: rgba(255, 215, 0, 0.4);
+            --gold: #FFD700;
+            --gold-light: #FFFFE0;
+            --primary: #3E2723;
+            --secondary: #5D4037;
+            --accent: #FFA000;
+        }
+
+
+
+        /* Xmas Green Theme */
+        [data-theme='xmas'] {
+            --bg-color: #064E3B;
+            --bg-gradient: repeating-linear-gradient(45deg, #064E3B, #064E3B 10px, #065F46 10px, #065F46 20px);
+            --text-color: #ECFDF5;
+            --glass: rgba(6, 78, 59, 0.8);
+            --glass-border: rgba(16, 185, 129, 0.3);
+            --gold: #FCA5A5;
+            /* Red as accent */
+            --gold-light: #FECACA;
+            --primary: #065F46;
+            --secondary: #047857;
+            --accent: #EF4444;
+        }
+
+        /* Cyber Purple Theme */
+        [data-theme='cyber'] {
+            --bg-color: #2E1065;
+            --bg-gradient: linear-gradient(to right, #4C1D95, #2E1065, #4C1D95);
+            --text-color: #E9D5FF;
+            --glass: rgba(19, 0, 40, 0.7);
+            --glass-border: rgba(216, 180, 254, 0.4);
+            --gold: #22D3EE;
+            /* Cyan */
+            --gold-light: #A5F3FC;
+            --primary: #581C87;
+            --secondary: #7C3AED;
+            --accent: #F0ABFC;
+            /* Pink */
+        }
+
+        /* High Contrast Mode */
+        [data-theme='high-contrast'] {
+            --bg-color: #FFFFFF;
+            --bg-gradient: none;
+            --text-color: #000000;
+            --glass: #FFFFFF;
+            --glass-border: #000000;
+            --gold: #000000;
+            --gold-light: #333333;
+            --primary: #E5E5E5;
+            --secondary: #D4D4D4;
+            --accent: #000000;
+        }
+
+        /* Boss Mode Animation */
+        .boss-mode-bg {
+            background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+            background-size: 400% 400%;
+            animation: rainbow 2s ease infinite;
+        }
+
+        @keyframes rainbow {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: var(--bg-gradient);
+            color: var(--text-color);
+            overflow-x: hidden;
+            min-height: 100vh;
+            transition: background 0.5s ease, color 0.3s ease;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 4px;
+            opacity: 0.5;
+        }
+
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .gold-gradient-text {
+            background: linear-gradient(to bottom, var(--gold), var(--gold-light), var(--gold));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            /* Fallback for high contrast */
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme='high-contrast'] .gold-gradient-text {
+            background: none;
+            color: #000;
+            text-shadow: none;
+        }
+
+        .gold-btn {
+            background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+            background-size: 200% auto;
+            color: var(--primary);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+            font-weight: 800;
+        }
+
+        .gold-btn:hover {
+            background-position: right center;
+        }
+
+        [data-theme='high-contrast'] .gold-btn {
+            background: #000;
+            color: #FFF;
+            border: 2px solid #000;
+            box-shadow: none;
+        }
+
+        .spinner {
+            border: 3px solid var(--glass-border);
+            border-radius: 50%;
+            border-top: 3px solid var(--gold);
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* CountDown Overlay */
+        .countdown-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.85);
+            /* Slightly darker */
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .countdown-number {
+            font-size: 15rem;
+            font-weight: 900;
+            color: #FFF;
+            text-shadow: 0 0 50px var(--gold);
+            animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+            z-index: 20;
+            position: relative;
+        }
+
+        /* Stick Drawing Animation */
+        .lottery-wrapper {
+            position: absolute;
+            bottom: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .cylinder {
+            width: 120px;
+            height: 160px;
+            background: linear-gradient(135deg, #600 0%, #a00 100%);
+            border: 4px solid #FFD700;
+            border-top: 8px solid #FFD700;
+            border-radius: 10px 10px 30px 30px;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+        }
+
+        .cylinder::after {
+            content: '福';
+            font-size: 60px;
+            color: #FFD700;
+            font-weight: bold;
+            opacity: 0.8;
+            margin-top: 30px;
+        }
+
+        .cylinder.shake {
+            animation: shake-cylinder 0.1s infinite;
+        }
+
+        .stick-container {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            height: 300px;
+            z-index: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            overflow: hidden;
+            /* Hide stick part below */
+        }
+
+        .stick {
+            width: 30px;
+            height: 250px;
+            background: #FFE57F;
+            border: 2px solid #DAA520;
+            border-radius: 4px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Stick States based on Count */
+        .stick.step-3 {
+            transform: translateY(80%) rotate(5deg);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.3);
+            animation: pulse-glow 0.5s ease-in-out infinite;
+        }
+
+        .stick.step-2 {
+            transform: translateY(50%) rotate(-5deg);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.4);
+            animation: pulse-glow 0.3s ease-in-out infinite;
+        }
+
+        .stick.step-1 {
+            transform: translateY(10%) rotate(0deg);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 1), 0 0 60px rgba(255, 215, 0, 0.6), 0 0 90px rgba(255, 215, 0, 0.3);
+            animation: pulse-glow 0.2s ease-in-out infinite, float 1s ease-in-out infinite;
+        }
+
+        @keyframes ping {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes shake-cylinder {
+            0% {
+                transform: rotate(0deg) translateY(0);
+            }
+
+            25% {
+                transform: rotate(-2deg) translateY(-2px);
+            }
+
+            50% {
+                transform: rotate(2deg) translateY(2px);
+            }
+
+            75% {
+                transform: rotate(-2deg) translateY(-2px);
+            }
+
+            100% {
+                transform: rotate(0deg) translateY(0);
+            }
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                filter: brightness(1);
+            }
+
+            50% {
+                filter: brightness(1.3);
+            }
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(10%) rotate(0deg);
+            }
+
+            50% {
+                transform: translateY(8%) rotate(0deg);
+            }
+        }
+
+        /* Fireworks Canvas */
+        #fireworks-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 10000;
+        }
+    </style>
+</head>
+
+<body>
+        <div id="root"></div>
+
+       
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
+        const { motion, AnimatePresence } = window.Motion;
+
+        // ==========================================
+        // 主應用程式腳本
+        // ==========================================
+
+
+        /**
+         * 1. INDEXED DB 包裝器
+         * 瀏覽器 IndexedDB API 的輕量級包裝。
+         * 用於持久化儲存大量資料 (候選人、歷史紀錄)。
+         * 確保頁面重整後資料不會遺失，且能處理比 localStorage 更大的資料量。
+         */
+        // --- 1. INDEXED DB 包裝器 ---
+        const DB_NAME = 'EVERLUCK_DB_V2';
+        const STORES = ['candidates', 'prizes', 'history', 'settings', 'audit'];
+
+        const idb = {
+            open: () => {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, 2);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        STORES.forEach(store => {
+                            if (!db.objectStoreNames.contains(store)) db.createObjectStore(store);
+                        });
+                    };
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            },
+            get: async (storeName, key) => {
+                const db = await idb.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(storeName, 'readonly');
+                    const store = tx.objectStore(storeName);
+                    const request = store.get(key);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            },
+            put: async (storeName, key, value) => {
+                const db = await idb.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(storeName, 'readwrite');
+                    const store = tx.objectStore(storeName);
+                    const request = store.put(value, key);
+                    request.onsuccess = () => resolve(true);
+                    request.onerror = () => reject(request.error);
+                });
+            },
+            getAll: async (storeName) => {
+                const db = await idb.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(storeName, 'readonly');
+                    const store = tx.objectStore(storeName);
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            },
+            add: async (storeName, value) => {
+                const db = await idb.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(storeName, 'readwrite');
+                    const store = tx.objectStore(storeName);
+                    const request = store.put(value, Date.now() + Math.random());
+                    request.onsuccess = () => resolve(true);
+                    request.onerror = () => reject(request.error);
+                });
+            },
+            clear: async (storeName) => {
+                const db = await idb.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(storeName, 'readwrite');
+                    const store = tx.objectStore(storeName);
+                    const request = store.clear();
+                    request.onsuccess = () => resolve(true);
+                    request.onerror = () => reject(request.error);
+                });
+            },
+            // Batch operations for better performance
+            batchPut: async (storeName, items) => {
+                const db = await idb.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(storeName, 'readwrite');
+                    const store = tx.objectStore(storeName);
+
+                    items.forEach(({ key, value }) => {
+                        store.put(value, key);
+                    });
+
+                    tx.oncomplete = () => resolve(true);
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+        };
+
+        /**
+         * 2. 用於安全隨機數的 WEB WORKER
+         * 在獨立執行緒中執行抽獎邏輯，避免計算法過程造成 UI 凍結。
+         * 使用 `crypto.getRandomValues` 產生密碼學安全的隨機數，
+         * 確保抽獎過程的公平性。
+         */
+        // --- 2. Worker 程式碼 ---
+        const workerCode = `
+            self.onmessage = function(e) {
+                if (e.data.type === 'DRAW') {
+                    const { pool, count } = e.data;
+                    const winners = [];
+                    const tempPool = [...pool];
+                    const getSecureRandomIndex = (max) => {
+                        const array = new Uint32Array(1);
+                        self.crypto.getRandomValues(array);
+                        return Math.floor((array[0] / (0xffffffff + 1)) * max);
+                    };
+                    for (let i = 0; i < count; i++) {
+                        if (tempPool.length === 0) break;
+                        const idx = getSecureRandomIndex(tempPool.length);
+                        winners.push(tempPool[idx]);
+                        tempPool[idx] = tempPool[tempPool.length - 1];
+                        tempPool.pop();
+                    }
+                    self.postMessage({ type: 'DRAW_RESULT', winners });
+                }
+            };
+        `;
+        const workerBlob = new Blob([workerCode], { type: "text/javascript" });
+        const workerUrl = URL.createObjectURL(workerBlob);
+
+        /**
+         * 自訂 Hook: useAsyncState
+         * 同步 React 狀態與 IndexedDB。 
+         * - 元件掛載時從 DB 載入初始值。
+         * - 當 Setter 被呼叫時，同步將更新寫回 DB。
+         * @param {string} storeName - IDB 儲存庫名稱。
+         * @param {string} key - 資料的鍵值。
+         * @param {any} initialValue - 若 DB 無資料時的預設值。
+         */
+        // --- 自訂 Hooks ---
+        const useAsyncState = (storeName, key, initialValue) => {
+            const [value, setValue] = useState(initialValue);
+            const [isLoaded, setIsLoaded] = useState(false);
+            useEffect(() => {
+                let mounted = true;
+                idb.get(storeName, key).then(val => {
+                    if (mounted) {
+                        if (val !== undefined) setValue(val);
+                        setIsLoaded(true);
+                    }
+                }).catch(err => {
+                    console.error("IDB Load Error:", err);
+                    if (mounted) setIsLoaded(true);
+                });
+                return () => { mounted = false; };
+            }, [storeName, key]);
+            const updateValue = (newValue) => {
+                const valToStore = newValue instanceof Function ? newValue(value) : newValue;
+                setValue(valToStore);
+                idb.put(storeName, key, valToStore).catch(console.error);
+            };
+            return [value, updateValue, isLoaded];
+        };
+
+        /**
+         * 輔助元件與函式
+         * UI 工具與資料格式化輔助函式集合。
+         */
+        // --- 輔助工具 ---
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const icons = {
+                settings: <><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></>,
+                home: <><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>,
+                upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" x2="12" y1="3" y2="15" /></>,
+                download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></>,
+                trash: <><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
+                book: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>,
+                sparkles: <><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z" /><path d="M5 3v4" /><path d="M9 5h4" /><path d="M19 19v2" /><path d="M17 21h4" /></>,
+                users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+                volume: <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></>,
+                mute: <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></>,
+                lock: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></>,
+                x: <><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>,
+                history: <><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></>,
+                shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></>
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name] || <circle cx="12" cy="12" r="10" />}
+                </svg>
+            );
+        };
+
+        const maskPhone = (phone) => phone && phone.length > 4 ? `${phone.substring(0, 4)}****${phone.substring(phone.length - 3)}` : phone;
+        const maskName = (name) => {
+            if (!name || typeof name !== 'string') return name;
+            const cleanName = name.replace(/\s+/g, '');
+            if (cleanName.length <= 1) return cleanName;
+            // 名字遮罩邏輯：
+            // 2 個字 -> 遮第 2 個字 (王○)
+            // 3 個字以上 -> 保留頭尾，中間遮罩 (陳○扁)
+            return cleanName.length === 2 ? cleanName[0] + 'O' : cleanName[0] + 'O'.repeat(cleanName.length - 2) + cleanName[cleanName.length - 1];
+        };
+        const generateId = () => Math.random().toString(36).substr(2, 9);
+        const getSessionId = () => {
+            // 取得或產生 Session ID，用於稽核紀錄
+            let sid = sessionStorage.getItem('everluck_sid');
+            if (!sid) { sid = generateId(); sessionStorage.setItem('everluck_sid', sid); }
+            return sid;
+        };
+
+        // 稽核紀錄 (Audit Log)
+        const logAction = async (action, details) => {
+            const entry = { timestamp: new Date().toISOString(), sid: getSessionId(), action, details };
+            await idb.add('audit', entry);
+        };
+
+
+
+        // 定義可用的佈景主題
+        const THEMES = {
+            classic: { label: '經典紅', id: 'classic' },
+            moon: { label: '中秋金', id: 'moon' },
+            xmas: { label: '聖誕綠', id: 'xmas' }
+        };
+
+        /**
+         * 音效引擎 (Web Audio API)
+         * 使用瀏覽器原生 Audio API 產生合成音效，不需要外部 mp3 檔案。
+         * 包含抽獎滾動聲、中獎音樂、倒數計時音效等。
+         */
+        // --- Sound Engine (Web Audio API) ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.bgmOsc = null;
+                this.bgmGain = null;
+            }
+
+            playTone(freq, type, duration, vol = 0.1) {
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playRoll() {
+                // Ticking sound
+                this.playTone(800, 'square', 0.05, 0.05);
+            }
+
+            playWin() {
+                // Major Chord Arpeggio
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    setTimeout(() => this.playTone(freq, 'sine', 0.4, 0.2), i * 100);
+                });
+            }
+
+            playCountdown() {
+                // High beep
+                this.playTone(880, 'triangle', 0.2, 0.2);
+            }
+
+            playBossStart() {
+                // Boss 模式啟動音效 (低沉長音)
+                this.playTone(110, 'sawtooth', 1.0, 0.3);
+            }
+        }
+
+        /**
+         * Toast 通知元件
+         * 顯示操作成功或錯誤的懸浮訊息，2 秒後自動消失。
+         */
+        const Toast = ({ message, type, onClose }) => {
+            useEffect(() => { const timer = setTimeout(onClose, 2000); return () => clearTimeout(timer); }, [onClose]); // Reduced to 2 seconds
+            const bgClass = type === 'error' ? 'bg-red-600 text-white border-red-400' : 'bg-green-600 text-white border-green-400';
+            return (
+                <motion.div initial={{ y: -50, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: -50, opacity: 0, scale: 0.9 }} className={`fixed top-20 left-1/2 transform -translate-x-1/2 px-8 py-4 rounded-xl shadow-2xl backdrop-blur-md z-50 font-bold border-2 ${bgClass} text-lg`}>
+                    {message}
+                </motion.div>
+            );
+        };
+
+        /**
+         * 中獎卡片元件 (WinnerCard)
+         * 負責顯示單一中獎者的資訊 (部門、姓名、員編)。
+         * 支援：
+         * - 打字機特效 (逐字顯示)
+         * - 獨立重抽滾動效果 (isRolling 狀態)
+         * - 姓名遮罩/顯示完整資訊
+         * - 響應式字體大小調整 (根據中獎人數多寡)
+         */
+        const WinnerCard = ({ winner, index, total, onVoid, showFullInfo, allowRedraw, seqNo, typewriter, typewriterSpeedDept, typewriterSpeedName, isRolling, candidates }) => {
+            const isLarge = total <= 3;
+            const isSingleWinner = total === 1;
+
+            // 打字機特效狀態
+            const [dispDept, setDispDept] = useState(isSingleWinner && typewriter ? '' : (winner.dept || '部門'));
+            const [dispName, setDispName] = useState(isSingleWinner && typewriter ? '' : (showFullInfo ? winner.name.replace(/\s/g, '') : maskName(winner.name)));
+            const [showExtras, setShowExtras] = useState(!(isSingleWinner && typewriter));
+
+            // 獨立重抽時的內部滾動狀態
+            const [rollDept, setRollDept] = useState('');
+            const [rollName, setRollName] = useState('');
+
+            useEffect(() => {
+                if (isRolling && candidates && candidates.length > 0) {
+                    const interval = setInterval(() => {
+                        const randomCand = candidates[Math.floor(Math.random() * candidates.length)];
+                        setRollDept(randomCand.dept || '部門');
+                        setRollName(showFullInfo ? randomCand.name : maskName(randomCand.name));
+                    }, 50);
+                    return () => clearInterval(interval);
+                }
+            }, [isRolling, candidates, showFullInfo]);
+
+            useEffect(() => {
+                if (isSingleWinner && typewriter && !isRolling) {
+                    // Reset Logic
+                    setDispDept('');
+                    setDispName('');
+                    setShowExtras(false);
+
+                    let deptText = winner.dept || '部門';
+                    let nameText = showFullInfo ? winner.name.replace(/\s/g, '') : maskName(winner.name);
+
+                    let dIdx = 0;
+                    let nIdx = 0;
+                    let timer = null;
+                    const deptSpeed = (typewriterSpeedDept || 1) * 1000;
+                    const nameSpeed = (typewriterSpeedName || 2) * 1000;
+
+                    const runName = () => {
+                        timer = setInterval(() => {
+                            if (nIdx < nameText.length) {
+                                setDispName(nameText.slice(0, nIdx + 1));
+                                nIdx++;
+                            } else {
+                                clearInterval(timer);
+                                setShowExtras(true);
+                            }
+                        }, nameSpeed);
+                    };
+
+                    timer = setInterval(() => {
+                        if (dIdx < deptText.length) {
+                            setDispDept(deptText.slice(0, dIdx + 1));
+                            dIdx++;
+                        } else {
+                            clearInterval(timer);
+                            runName();
+                        }
+                    }, deptSpeed);
+
+                    return () => { clearInterval(timer); };
+                } else if (!isRolling) {
+                    setDispDept(winner.dept || '部門');
+                    setDispName(showFullInfo ? winner.name.replace(/\s/g, '') : maskName(winner.name));
+                    setShowExtras(true);
+                }
+            }, [winner, isSingleWinner, typewriter, showFullInfo, typewriterSpeedDept, typewriterSpeedName, isRolling]);
+
+            // 根據是否正在重抽決定顯示內容
+            const finalDept = isRolling ? rollDept : dispDept;
+            const finalName = isRolling ? rollName : dispName;
+
+            // 動態決定字體大小 (多人中獎時縮小字體)
+            // 部門: 單人(4xl/5xl) | 多人(3xl) | 很多(xl)
+            // 姓名: 單人(7xl/9xl) | 多人(6xl) | 很多(4xl)
+            // 編號: 單人(2xl/3xl) | 多人(2xl) | 很多(lg)
+
+            const getDeptSize = () => {
+                if (isSingleWinner) return 'text-4xl md:text-5xl';
+                if (isLarge) return 'text-3xl';
+                return 'text-xl';
+            };
+
+            const getNameSize = () => {
+                if (isSingleWinner) return 'text-7xl md:text-9xl';
+                if (isLarge) return 'text-6xl';
+                return 'text-4xl';
+            };
+
+            const getCodeSize = () => {
+                if (isSingleWinner) return 'text-2xl md:text-3xl';
+                if (isLarge) return 'text-2xl';
+                return 'text-lg';
+            };
+
+            return (
+                <motion.div layout initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`relative group border border-gold/30 rounded-xl overflow-hidden shadow-[0_0_15px_rgba(255,215,0,0.1)] bg-gradient-to-b from-black/60 to-black/80 flex flex-col items-center justify-center text-center p-4 transition-all hover:border-gold hover:shadow-[0_0_25px_rgba(255,215,0,0.3)] ${index === 0 && isSingleWinner ? "ring-2 ring-gold/50 shadow-[0_0_50px_rgba(255,215,0,0.2)]" : ""} ${isLarge ? 'min-h-[250px]' : 'min-h-[160px]'}`}>
+                    {allowRedraw && !isRolling && (
+                        <button onClick={() => onVoid(winner)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded shadow-lg border border-red-400 z-20">
+                            Void / Redraw
+                        </button>
+                    )}
+
+                    {seqNo && !isRolling && (
+                        <div className="absolute top-3 left-4 w-8 h-8 rounded-full border border-gold/40 flex items-center justify-center text-gold font-bold font-mono text-sm bg-black/40 shadow-inner">
+                            {seqNo}
+                        </div>
+                    )}
+
+                    {/* Department (Top) */}
+                    <div className={`${getDeptSize()} font-bold text-yellow-500 tracking-wider mb-2 drop-shadow-md`}>
+                        {finalDept}
+                    </div>
+
+                    {/* Name (Center) - Restored gold gradient */}
+                    <div className={`${getNameSize()} font-black gold-gradient-text tracking-widest leading-tight drop-shadow-[0_0_10px_rgba(255,215,0,0.3)] my-1`}>
+                        {finalName}
+                    </div>
+
+                    {/* Code (Bottom) */}
+                    {(!isSingleWinner || showExtras) && !isRolling && (
+                        <div className={`${getCodeSize()} font-mono text-goldLight/80 tracking-widest mt-2`}>
+                            {winner.code}
+                        </div>
+                    )}
+
+                    {/* WINNER Badge */}
+                    {isSingleWinner && showExtras && !isRolling && (
+                        <motion.div initial={{ scale: 0, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} className="absolute -bottom-4 right-4 text-6xl opacity-10 font-black italic text-gold select-none pointer-events-none">
+                            WINNER
+                        </motion.div>
+                    )}
+                </motion.div>
+            );
+        };
+
+        const ToggleSwitch = ({ checked, onChange, label }) => (
+            <label className="flex items-center cursor-pointer gap-3 select-none group">
+                <div className="relative">
+                    <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+                    <div className={`w-12 h-6 rounded-full shadow-inner transition-all duration-300 ${checked ? 'bg-green-500' : 'bg-gray-600'}`}></div>
+                    <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-all duration-300 shadow-md ${checked ? 'transform translate-x-6' : ''}`}>
+                        {checked && <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-75"></div>}
+                    </div>
+                </div>
+                <div className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors flex items-center gap-2">
+                    {label}
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${checked ? 'bg-green-500/20 text-green-400' : 'bg-gray-600/20 text-gray-500'}`}>
+                        {checked ? 'ON' : 'OFF'}
+                    </span>
+                </div>
+            </label>
+        );
+
+        // 動態計數器元件 (Animated Counter)
+        // 用於平滑顯示數值變化 (例如倒數秒數或獎品數量)
+        const AnimatedCounter = ({ value, duration = 500 }) => {
+            const [displayValue, setDisplayValue] = useState(value);
+            const [prevValue, setPrevValue] = useState(value);
+
+            useEffect(() => {
+                if (value === prevValue) return;
+
+                const startValue = prevValue;
+                const endValue = value;
+                const startTime = performance.now();
+
+                const animate = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+
+                    // Easing function (easeOutQuad)
+                    const eased = 1 - (1 - progress) * (1 - progress);
+                    const current = Math.round(startValue + (endValue - startValue) * eased);
+
+                    setDisplayValue(current);
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        setPrevValue(value);
+                    }
+                };
+
+                requestAnimationFrame(animate);
+            }, [value, prevValue, duration]);
+
+            return <>{displayValue.toLocaleString()}</>;
+        };
+
+        /**
+         * 倒數遮罩層 (Countdown Overlay)
+         * 顯示抽籤筒搖動動畫與倒數數字。
+         * 包含：
+         * - 搖動的籤筒 (cylinder shake)
+         * - 根據倒數階段變化的籤 (stick step)
+         * - 放大縮小的數字動畫 (ping)
+         */
+        const CountdownOverlay = ({ count }) => {
+            if (count === null) return null;
+            return (
+                <div className="countdown-overlay">
+                    {/* Stick Animation Layer */}
+                    <div className="lottery-wrapper">
+                        <div className="stick-container">
+                            {/* Stick position changes based on count */}
+                            <div className={`stick step-${count}`}></div>
+                        </div>
+                        <div className="cylinder shake"></div>
+                    </div>
+
+                    {/* Number Layer */}
+                    <div key={count} className="countdown-number">{count}</div>
+                </div>
+            );
+        };
+
+        /**
+         * 煙火特效元件 (Fireworks)
+         * 使用 HTML5 Canvas 繪製自訂煙火粒子效果。
+         * 當抽獎完成且達到特定條件 (如 Boss 模式或大獎) 時觸發。
+         */
+        const Fireworks = ({ active, onComplete }) => {
+            const canvasRef = useRef(null);
+
+            useEffect(() => {
+                if (!active) return;
+
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                const ctx = canvas.getContext('2d');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+
+                // Vibration API support
+                if (navigator.vibrate) {
+                    navigator.vibrate([200, 100, 200, 100, 400]);
+                }
+
+                const particles = [];
+                const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+
+                class Particle {
+                    constructor(x, y, color) {
+                        this.x = x;
+                        this.y = y;
+                        this.color = color;
+                        this.velocity = {
+                            x: (Math.random() - 0.5) * 8,
+                            y: (Math.random() - 0.5) * 8
+                        };
+                        this.alpha = 1;
+                        this.decay = Math.random() * 0.015 + 0.015;
+                        this.size = Math.random() * 3 + 2;
+                    }
+
+                    update() {
+                        this.velocity.y += 0.1;
+                        this.x += this.velocity.x;
+                        this.y += this.velocity.y;
+                        this.alpha -= this.decay;
+                    }
+
+                    draw() {
+                        ctx.save();
+                        ctx.globalAlpha = this.alpha;
+                        ctx.fillStyle = this.color;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                }
+
+                const createFirework = (x, y) => {
+                    const particleCount = 80;
+                    for (let i = 0; i < particleCount; i++) {
+                        particles.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)]));
+                    }
+                };
+
+                // Create multiple fireworks
+                const fireworkPositions = [
+                    { x: canvas.width * 0.2, y: canvas.height * 0.3 },
+                    { x: canvas.width * 0.5, y: canvas.height * 0.2 },
+                    { x: canvas.width * 0.8, y: canvas.height * 0.3 },
+                    { x: canvas.width * 0.35, y: canvas.height * 0.5 },
+                    { x: canvas.width * 0.65, y: canvas.height * 0.5 }
+                ];
+
+                let fireworkIndex = 0;
+                const fireworkInterval = setInterval(() => {
+                    if (fireworkIndex < fireworkPositions.length) {
+                        const pos = fireworkPositions[fireworkIndex];
+                        createFirework(pos.x, pos.y);
+                        fireworkIndex++;
+                    }
+                }, 200);
+
+                const animate = () => {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    for (let i = particles.length - 1; i >= 0; i--) {
+                        particles[i].update();
+                        particles[i].draw();
+
+                        if (particles[i].alpha <= 0) {
+                            particles.splice(i, 1);
+                        }
+                    }
+
+                    if (particles.length > 0 || fireworkIndex < fireworkPositions.length) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        if (onComplete) onComplete();
+                    }
+                };
+
+                animate();
+
+                return () => {
+                    clearInterval(fireworkInterval);
+                };
+            }, [active, onComplete]);
+
+            if (!active) return null;
+
+            return <canvas ref={canvasRef} id="fireworks-canvas" />;
+        };
+
+        /**
+         * 滾動文字特效元件 (RollingText)
+         * 在抽獎過程中快速切換顯示候選人姓名與部門，營造緊張感。
+         * 使用 requestAnimationFrame 實現 60fps 的流暢滾動。
+         */
+        const RollingText = ({ candidates, showFullInfo, duration, onTick }) => {
+            const nameRef = useRef(null);
+            const deptRef = useRef(null);
+            const codeRef = useRef(null);
+
+            useEffect(() => {
+                if (!candidates || candidates.length === 0) return;
+
+                let animationFrameId;
+                const startTime = Date.now();
+                const totalDuration = duration || 3000;
+                let nextTickTime = startTime;
+
+                // Helper to format name display
+                const getName = (c) => showFullInfo ? c.name.replace(/\s/g, '') : maskName(c.name);
+
+                // Initial draw
+                const initialIdx = Math.floor(Math.random() * candidates.length);
+                if (nameRef.current) nameRef.current.textContent = getName(candidates[initialIdx]);
+                if (deptRef.current) deptRef.current.textContent = candidates[initialIdx].dept || '部門';
+                if (codeRef.current) codeRef.current.textContent = candidates[initialIdx].code;
+
+                const loop = () => {
+                    const now = Date.now();
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / totalDuration, 1);
+
+                    if (now >= nextTickTime) {
+                        const idx = Math.floor(Math.random() * candidates.length);
+                        const c = candidates[idx];
+
+                        if (nameRef.current) nameRef.current.textContent = getName(c);
+                        if (deptRef.current) deptRef.current.textContent = c.dept || '部門';
+                        if (codeRef.current) codeRef.current.textContent = c.code;
+                        if (onTick) onTick();
+
+                        const nextDelay = 50 + Math.pow(progress, 2.5) * 550;
+                        nextTickTime = now + nextDelay;
+                    }
+
+                    if (progress < 1) {
+                        animationFrameId = requestAnimationFrame(loop);
+                    }
+                };
+
+                animationFrameId = requestAnimationFrame(loop);
+                return () => cancelAnimationFrame(animationFrameId);
+            }, [candidates, duration, onTick, showFullInfo]);
+
+            return (
+                <div className="flex flex-col items-center justify-center h-full">
+                    <div ref={deptRef} className="text-3xl md:text-5xl font-mono font-bold text-yellow-500 mb-2 tracking-wider"></div>
+                    <div ref={nameRef} className="text-7xl md:text-9xl font-black gold-gradient-text tracking-wider drop-shadow-lg text-center leading-tight">準備中...</div>
+                    <div ref={codeRef} className="text-2xl md:text-3xl font-mono text-goldLight/60 mt-4"></div>
+                </div>
+            );
+        };
+
+        const HelpContent = () => (
+            <div className="glass-panel p-8 rounded-2xl text-gray-200 space-y-8 overflow-y-auto h-[80vh] border border-gold/20">
+                <div className="text-center pb-6 border-b border-white/10">
+                    <h2 className="text-3xl font-black gold-gradient-text mb-2">EVERLUCK 操作使用手冊</h2>
+                    <p className="text-sm text-gray-400">Enterprise Edition v4.2</p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                    {/* 左側：操作流程與檔案格式 */}
+                    <div className="space-y-6">
+                        {/* 1. 操作流程 */}
+                        <div className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2"><Icon name="sparkles" size={20} className="text-gold" /> 抽獎流程教學</h3>
+                            <div className="bg-black/30 p-4 rounded-lg border border-white/5 space-y-3">
+                                <div className="flex gap-3">
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gold text-black font-bold flex items-center justify-center text-xs">1</span>
+                                    <div>
+                                        <h4 className="font-bold text-gold">資料準備與匯入</h4>
+                                        <p className="text-sm text-gray-400">登入「設定」頁面 (密碼: 123)，分別匯入及「候選人名單」與「獎項清單」的 CSV 檔案。</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gold text-black font-bold flex items-center justify-center text-xs">2</span>
+                                    <div>
+                                        <h4 className="font-bold text-gold">設定抽獎參數</h4>
+                                        <p className="text-sm text-gray-400">回到「首頁」，從下拉選單選擇要抽出的獎項。系統會自動帶入預設人數，您也可手動修改。</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gold text-black font-bold flex items-center justify-center text-xs">3</span>
+                                    <div>
+                                        <h4 className="font-bold text-gold">進行抽獎</h4>
+                                        <p className="text-sm text-gray-400">點擊「抽獎」按鈕或按下空白鍵。等待動畫結束後，中獎名單將顯示於螢幕上。</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gold text-black font-bold flex items-center justify-center text-xs">4</span>
+                                    <div>
+                                        <h4 className="font-bold text-gold">結果確認與存檔</h4>
+                                        <p className="text-sm text-gray-400">中獎結果會自動儲存。您可在下方「獲獎紀錄」區塊查看，或匯出完整報表。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 2. 檔案格式說明 */}
+                        <div className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2"><Icon name="upload" size={20} className="text-gold" /> 資料格式說明 (CSV)</h3>
+
+                            <div className="bg-black/30 p-4 rounded-lg border border-white/5">
+                                <h4 className="text-gold text-sm font-bold mb-2 flex justify-between">
+                                    <span>候選人名單 (Candidates)</span>
+                                    <span className="text-xs text-gray-500 font-normal">編碼: UTF-8</span>
+                                </h4>
+                                <p className="text-xs text-gray-400 mb-2">格式：工號/編號, 姓名, 部門名稱</p>
+                                <code className="block font-mono text-xs text-green-400 bg-black/50 p-3 rounded border border-white/5">
+                                    EMP001, 王小明, 業務部<br />
+                                    EMP002, 李大華, 研發部<br />
+                                    EMP003, 張美麗, 行銷部
+                                </code>
+                                <p className="text-xs text-gray-500 mt-2">* 第一欄必須是唯一識別碼 (ID/工號)，用於防重覆與身分識別。</p>
+                            </div>
+
+                            <div className="bg-black/30 p-4 rounded-lg border border-white/5">
+                                <h4 className="text-gold text-sm font-bold mb-2">獎項清單 (Prizes)</h4>
+                                <p className="text-xs text-gray-400 mb-2">格式：獎項名稱, 預設人數</p>
+                                <code className="block font-mono text-xs text-green-400 bg-black/50 p-3 rounded border border-white/5">
+                                    特獎 - 歐洲十日遊, 1<br />
+                                    一獎 - iPhone 16 Pro, 5<br />
+                                    普獎 - 超商禮券, 20
+                                </code>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 右側：設定詳解 */}
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2"><Icon name="settings" size={20} className="text-gold" /> 設定頁面功能詳解</h3>
+                        <div className="bg-black/20 rounded-lg border border-white/5 divide-y divide-white/5">
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">開獎音效 (Sound)</h4>
+                                <p className="text-xs text-gray-400">開啟/關閉抽獎時的滾動音效與中獎音效。</p>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">倒數動畫 (Countdown)</h4>
+                                <p className="text-xs text-gray-400">僅在抽出「1位」中獎者時生效。會先顯示 3, 2, 1 的倒數動畫，營造緊張感。</p>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">中獎特效 (逐字顯示)</h4>
+                                <p className="text-xs text-gray-400">僅在抽出「1位」中獎者時生效。獲獎者資訊會以打字機效果逐字顯示，適合大獎揭曉使用。</p>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">中獎彩帶 - 一般開獎</h4>
+                                <p className="text-xs text-gray-400">中獎時是否噴發彩帶特效。</p>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">顯示統計數據 (Statistics)</h4>
+                                <p className="text-xs text-gray-400">決定是否在主畫面上方顯示「參加人數」、「剩餘人數」等統計資料條。</p>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">顯示完整的姓名資訊</h4>
+                                <p className="text-xs text-gray-400">開啟後將顯示完整姓名 (王小明)。關閉時會自動遮蔽中間字 (王O明) 以保護隱私。</p>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">顯示中獎流水號 (Sequence No.)</h4>
+                                <p className="text-xs text-gray-400">多位中獎者時，卡片左上角會顯示 1, 2, 3... 序號，方便核對。</p>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">允許重複中獎 (Multiple Wins)</h4>
+                                <p className="text-xs text-gray-400">若開啟，同一人可重複獲得不同獎項。預設關閉 (中獎後即從候選名單移除)。</p>
+                            </div>
+                            <div className="p-3">
+                                <h4 className="font-bold text-white text-sm mb-1">允許重抽 (Allow Redraw)</h4>
+                                <p className="text-xs text-gray-400">開啟後，中獎卡片右上角會出現「廢票重抽」按鈕，可作廢該名額並立即補抽一位。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const NavButton = ({ active, onClick, icon, label, disabled }) => (
+            <button
+                onClick={onClick}
+                disabled={disabled}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${active ? 'bg-gold/20 text-gold border border-gold/30' : 'hover:text-gold text-gray-300'} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+            >
+                <Icon name={icon} size={18} />
+                <span className="hidden md:inline">{label}</span>
+            </button>
+        );
+
+        const App = () => {
+            // UI 狀態管理
+            const [tab, setTab] = useState('main'); // 當前頁籤 (main, help, settings)
+            const [page, setPage] = useState(0);    // 贏家列表分頁
+
+            // 資料狀態 (使用 useAsyncState 自動同步 IndexedDB)
+            const [candidates, setCandidates, isCandLoaded] = useAsyncState('candidates', 'list', []);
+            const [prizes, setPrizes, isPrizeLoaded] = useAsyncState('prizes', 'list', []);
+            const [history, setHistory, isHistLoaded] = useAsyncState('history', 'list', []);
+
+            // 設定與偏好 (使用 localStorage 持久化)
+            const [theme, setTheme] = useState(localStorage.getItem('everluck_theme') || 'classic');
+            const [customTitle, setCustomTitle] = useState(localStorage.getItem('everluck_title') || '');
+
+            // 管理員權限狀態
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [showAdminLogin, setShowAdminLogin] = useState(false);
+            const [adminPassword, setAdminPassword] = useState('');
+
+            // 特效與行為設定
+            const [effects, setEffects] = useState(JSON.parse(localStorage.getItem('everluck_effects')) || {
+                countdown: true,   // 3,2,1 倒數
+                confetti: true,    // 彩帶
+                fireworks: true,   // 煙火
+                sound: true,       // 音效
+                showFullInfo: false, // 顯示完整姓名
+                allowMultipleWins: false, // 允許重複中獎
+                showStats: true,   // 顯示統計條
+                showWinnerSeq: true, // 顯示中獎序號
+                typewriter: false, // 打字機效果
+                typewriterSpeedDept: 1.0,
+                typewriterSpeedName: 2.0
+            });
+            const [isBossMode, setIsBossMode] = useState(false); // 老闆模式 (加速且更炫麗)
+            const [countdown, setCountdown] = useState(null); // 倒數狀態 (3, 2, 1, null)
+
+            // 監聽並自動儲存設定變更
+            useEffect(() => { localStorage.setItem('everluck_theme', theme); }, [theme]);
+            useEffect(() => { localStorage.setItem('everluck_title', customTitle); }, [customTitle]);
+            useEffect(() => { localStorage.setItem('everluck_effects', JSON.stringify(effects)); }, [effects]);
+
+            const isSystemReady = isCandLoaded && isPrizeLoaded && isHistLoaded;
+
+            const [currentPrizeId, setCurrentPrizeId] = useState('');
+            const [drawCount, setDrawCount] = useState(1);
+            const [isRolling, setIsRolling] = useState(false);
+            const [currentWinners, setCurrentWinners] = useState([]);
+            const [redrawingId, setRedrawingId] = useState(null); // ID of the winner being redrawn
+            const [toast, setToast] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+
+            // History pagination and search
+            const [historyPage, setHistoryPage] = useState(0);
+            const [historySearch, setHistorySearch] = useState('');
+            const [historyPrizeFilter, setHistoryPrizeFilter] = useState('');
+            const [showFireworks, setShowFireworks] = useState(false);
+
+            const workerRef = useRef(null);
+            const soundEngineRef = useRef(null);
+            const rollIntervalRef = useRef(null);
+
+            // Effect: Apply Theme
+            useEffect(() => {
+                document.body.setAttribute('data-theme', isHighContrast ? 'high-contrast' : theme);
+                localStorage.setItem('everluck_theme', theme);
+            }, [theme]);
+
+            // Effect: Persist Settings
+            useEffect(() => { localStorage.setItem('everluck_effects', JSON.stringify(effects)); }, [effects]);
+            useEffect(() => { localStorage.setItem('everluck_title', customTitle); }, [customTitle]);
+
+            // High Contrast needs its own state or just reuse theme? 
+            // The user wanted a toggle. Let's make High Contrast a special theme for simplicity, 
+            // OR a separate boolean override. The user asked for "Toggle", implying boolean.
+            const [isHighContrast, setIsHighContrast] = useState(false);
+
+            useEffect(() => {
+                workerRef.current = new Worker(workerUrl);
+                soundEngineRef.current = new SoundEngine();
+                return () => workerRef.current.terminate();
+            }, []);
+
+            // Audio Volume Sync
+            // Audio Volume Sync - Handled dynamically in SoundEngine calls
+
+
+            // Boss Mode Effect
+            // Boss Mode Effect
+            useEffect(() => {
+                if (isBossMode) {
+                    if (effects.sound && soundEngineRef.current) soundEngineRef.current.playBossStart();
+                }
+            }, [isBossMode, effects.sound]);
+
+            // Auto-select first prize on load
+            useEffect(() => {
+                if (isPrizeLoaded && prizes.length > 0 && !currentPrizeId) {
+                    setCurrentPrizeId(prizes[0].id);
+                    setDrawCount(prizes[0].count);
+                }
+            }, [isPrizeLoaded, prizes, currentPrizeId]);
+
+            const showToast = (msg, type = 'info') => setToast({ message: msg, type });
+
+            const wonIds = useMemo(() => new Set(history.flatMap(h => h.winners.map(w => w.id))), [history]);
+
+            // 計算可用候選人
+            // 若不允許重複中獎，則排除歷史紀錄中的已中獎者 ID
+            const availableCandidates = useMemo(() => {
+                if (effects.allowMultipleWins) {
+                    return candidates;
+                } else {
+                    return candidates.filter(c => !wonIds.has(c.id));
+                }
+            }, [candidates, wonIds, effects.allowMultipleWins]);
+
+            const currentPrize = prizes.find(p => p.id === currentPrizeId);
+
+            const handleFileUpload = (e, type) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                setIsLoading(true);
+
+                Papa.parse(file, {
+                    header: false,
+                    skipEmptyLines: true,
+                    worker: true,
+                    complete: (results) => {
+                        let rawData = results.data;
+                        if (rawData.length > 0) {
+                            const firstRow = rawData[0].map(c => String(c).toLowerCase().trim());
+                            if (firstRow.some(c => c.includes('name') || c.includes('姓名') || c.includes('dept') || c.includes('部門'))) {
+                                rawData = rawData.slice(1);
+                            }
+                        }
+
+                        if (type === 'candidates') {
+                            const data = [];
+                            const seenCodes = new Set();
+                            let duplicateCount = 0;
+                            // Format: [Code/ID, Name, Dept]
+                            for (let i = 0; i < rawData.length; i++) {
+                                const row = rawData[i];
+                                const code = row[0] ? String(row[0]).trim() : generateId();
+                                const name = row[1] ? String(row[1]).trim() : 'Unknown';
+                                const dept = row[2] ? String(row[2]).trim() : '';
+
+                                if (name !== 'Unknown') {
+                                    if (!seenCodes.has(code)) {
+                                        seenCodes.add(code);
+                                        data.push({ id: generateId(), code: code, name: name, dept: dept });
+                                    } else {
+                                        duplicateCount++;
+                                    }
+                                }
+                            }
+                            if (data.length === 0) {
+                                showToast("無法讀取資料，請檢查格式", 'error');
+                            } else {
+                                setCandidates(data);
+                                // Clear History on new Candidates upload
+                                setHistory([]);
+                                idb.clear('history');
+
+                                logAction('IMPORT_CANDIDATES', `Imported ${data.length} candidates, filtered ${duplicateCount} duplicates`);
+                                let msg = `匯入成功！共載入 ${data.length} 位候選人`;
+                                if (duplicateCount > 0) msg += ` (過濾 ${duplicateCount} 重複)`;
+                                msg += " (已清空舊的得獎紀錄)";
+                                showToast(msg);
+                            }
+                        } else {
+                            const newPrizes = rawData.map(row => ({
+                                id: generateId(),
+                                name: row[0] ? String(row[0]).trim() : 'Prize',
+                                count: row[1] ? parseInt(row[1], 10) : 1
+                            })).filter(p => !isNaN(p.count));
+                            if (newPrizes.length > 0) {
+                                setPrizes(newPrizes); // Overwrite existing prizes
+                                if (!currentPrizeId) setCurrentPrizeId(newPrizes[0].id);
+                                logAction('IMPORT_PRIZES', `Imported ${newPrizes.length} prizes (overwrite mode)`);
+                                showToast(`獎項匯入成功！共 ${newPrizes.length} 項（已覆蓋原有資料）`);
+                            }
+                        }
+                        setIsLoading(false);
+                    },
+                    error: () => { showToast("CSV 解析失敗", 'error'); setIsLoading(false); }
+                });
+                e.target.value = '';
+            };
+
+            const triggerConfetti = () => {
+                if (!effects.confetti) return;
+                const duration = 3000; const end = Date.now() + duration;
+                (function frame() {
+                    confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#FFD700', '#B22222', '#FFFFFF'] });
+                    confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#FFD700', '#B22222', '#FFFFFF'] });
+                    if (Date.now() < end) requestAnimationFrame(frame);
+                }());
+            };
+
+            const completeDraw = (winners) => {
+                setIsRolling(false);
+                setCurrentWinners(winners);
+                // Play Win Sound
+                // Play Win Sound
+                if (effects.sound && soundEngineRef.current) soundEngineRef.current.playWin();
+
+                // Trigger fireworks if enabled (controlled by setting, regardless of winner count)
+                // Trigger fireworks removed as per request
+                // if (effects.fireworks) {
+                //     setShowFireworks(true);
+                // }
+
+                triggerConfetti();
+
+                const record = {
+                    id: generateId(),
+                    timestamp: new Date().toLocaleString(),
+                    prizeName: currentPrize.name,
+                    winners: winners
+                };
+                setHistory(prev => [record, ...prev]);
+                setHistoryPage(0); // Ensure we show the latest result on page 0
+                logAction('DRAW_COMPLETE', `Winners: ${winners.map(w => w.code).join(', ')}`);
+
+                // Clear roll sound interval
+                if (rollIntervalRef.current) clearInterval(rollIntervalRef.current);
+            };
+
+            // 倒數計時並揭曉
+            // 處理 3, 2, 1 倒數動畫邏輯
+            const startCountdownAndReveal = (winners) => {
+                let c = 3;
+                setCountdown(3);
+                // 停止背景滾動音效 (若有)，播放倒數嗶聲
+                if (rollIntervalRef.current) clearInterval(rollIntervalRef.current);
+                if (effects.sound && soundEngineRef.current) soundEngineRef.current.playCountdown();
+
+                const timer = setInterval(() => {
+                    c--;
+                    if (c > 0) {
+                        setCountdown(c);
+                        if (effects.sound && soundEngineRef.current) soundEngineRef.current.playCountdown();
+                    } else {
+                        clearInterval(timer);
+                        setCountdown(null);
+                        completeDraw(winners);
+                    }
+                }, 1000);
+            };
+
+            // 處理抽獎觸發
+            const handleDraw = useCallback(() => {
+                if (isRolling) return;
+                if (!currentPrize) return showToast("請先選擇獎項", 'error');
+                if (drawCount <= 0) return showToast("抽出人數需 > 0", 'error');
+                if (availableCandidates.length < drawCount) return showToast(`候選人不足`, 'error');
+
+                setIsRolling(true);
+                setCurrentWinners([]);
+                logAction('DRAW_START', `Prize: ${currentPrize.name}, Count: ${drawCount} (Boss: ${isBossMode})`);
+
+                // 設定 Worker 回調接收抽獎結果
+                workerRef.current.onmessage = (e) => {
+                    if (e.data.type === 'DRAW_RESULT') {
+                        const winners = e.data.winners;
+                        // Boss 模式縮短滾動時間
+                        const duration = isBossMode ? 1500 : 3500;
+
+                        setTimeout(() => {
+                            // 邏輯: 
+                            // 若只抽 1 人且開啟倒數 -> 先倒數 -> 再揭曉
+                            // 否則 -> 直接揭曉
+                            if (drawCount === 1 && effects.countdown) {
+                                startCountdownAndReveal(winners);
+                            } else {
+                                completeDraw(winners);
+                            }
+                        }, duration);
+                    }
+                };
+                // 發送抽獎指令給 Worker (傳入當前可用名單與抽出人數)
+                workerRef.current.postMessage({ type: 'DRAW', pool: availableCandidates, count: drawCount });
+            }, [isRolling, currentPrize, drawCount, availableCandidates, effects, isBossMode]);
+
+
+
+            // 處理重抽 (Void & Redraw)
+            // 將指定中獎者作廢，並立即從剩下名單中補抽一位。
+            const handleVoid = async (winnerToVoid) => {
+                if (!confirm(`確定要作廢 [${maskName(winnerToVoid.name)}] 的中獎資格並重新抽出一位嗎？`)) return;
+
+                if (availableCandidates.length === 0) return showToast("無剩餘候選人可重抽", 'error');
+
+                // 1. 記錄作廢動作
+                await logAction('VOID_DRAW', `Voided: ${winnerToVoid.name} (${winnerToVoid.phone}). Redrawing...`);
+
+                // 2. 執行單人重抽 (觸發局部滾動效果)
+                setRedrawingId(winnerToVoid.id);
+
+                // 使用一次性的 Worker 回調來處理重抽結果
+                const originalOnMessage = workerRef.current.onmessage;
+
+                workerRef.current.onmessage = (e) => {
+                    if (e.data.type === 'DRAW_RESULT') {
+                        const newWinners = e.data.winners;
+                        const newWinner = newWinners[0];
+
+                        setTimeout(() => {
+                            setRedrawingId(null);
+                            // 播放中獎音效
+                            if (effects.sound && soundEngineRef.current) soundEngineRef.current.playWin();
+
+                            // 3. 更新目前顯示的贏家列表
+                            setCurrentWinners(prev => prev.map(w => w.id === winnerToVoid.id ? newWinner : w));
+
+                            // 4. 更新歷史紀錄 (找到包含該廢票的紀錄並替換)
+                            setHistory(prevHistory => {
+                                return prevHistory.map(record => {
+                                    if (record.winners.some(w => w.id === winnerToVoid.id)) {
+                                        const updatedWinners = record.winners.map(w => w.id === winnerToVoid.id ? newWinner : w);
+                                        return { ...record, winners: updatedWinners };
+                                    }
+                                    return record;
+                                });
+                            });
+
+                            showToast(`已補抽: ${maskName(newWinner.name)}`);
+                            logAction('REDRAW_COMPLETE', `Replaced ${winnerToVoid.phone} with ${newWinner.phone}`);
+
+                            // 還原原始的 Worker 回調
+                            workerRef.current.onmessage = originalOnMessage;
+
+                        }, 1500); // 重抽時間較短
+                    }
+                };
+
+                // 只抽 1 人 (availableCandidates 已自動排除之前的歷史得獎者)
+                workerRef.current.postMessage({ type: 'DRAW', pool: availableCandidates, count: 1 });
+            };
+
+            /* Hotkeys removed as per request */
+            /*
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.code === 'Space' && tab === 'main' && !isRolling && !isLoading && isSystemReady) {
+                        e.preventDefault(); handleDraw();
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [tab, isRolling, isLoading, isSystemReady, handleDraw]);
+            */
+
+            // 匯出歷史紀錄 (Export History)
+            const handleExport = () => {
+                if (history.length === 0) return showToast('無中獎紀錄可匯出');
+
+                // 產生 CSV 內容 (含 BOM 以支援 Excel 中文顯示)
+                let csvContent = "時間,獎項,編號,姓名,部門\n";
+
+                history.forEach(h => {
+                    h.winners.forEach(w => {
+                        csvContent += `${h.timestamp},${h.prizeName},${w.code},${w.name},${w.dept || ''}\n`;
+                    });
+                });
+
+                downloadCSV(csvContent, `winners_export_${new Date().getTime()}.csv`);
+                logAction('EXPORT_HISTORY', 'User downloaded result CSV');
+            };
+
+            const downloadCSV = (csvContent, fileName) => {
+                const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = fileName;
+                link.click();
+            };
+
+            const handleExportData = (type) => {
+                let data = [];
+                let fileName = '';
+                if (type === 'candidates') {
+                    if (candidates.length === 0) return showToast('無候選人資料可匯出');
+                    data = candidates.map(c => ({ '編號': c.code, '姓名': c.name, '部門': c.dept }));
+                    fileName = `candidates_export_${new Date().getTime()}.csv`;
+                } else if (type === 'prizes') {
+                    if (prizes.length === 0) return showToast('無獎項資料可匯出');
+                    data = prizes.map(p => ({ '獎項名稱': p.name, '名額': p.count }));
+                    fileName = `prizes_export_${new Date().getTime()}.csv`;
+                }
+                const csv = Papa.unparse(data);
+                downloadCSV(csv, fileName);
+            };
+
+            const handleExportAudit = async () => {
+                const logs = await idb.getAll('audit');
+                if (!logs || logs.length === 0) return showToast('暫無稽核紀錄');
+
+                // 手動建構 CSV 內容
+                let csvContent = "時間,SessionID,動作,詳細內容\n";
+                logs.forEach(log => {
+                    // 處理欄位中的逗號或換行 (簡易處理：替換為空格)
+                    const clean = (str) => String(str || '').replace(/,/g, ' ').replace(/\n/g, ' ');
+                    csvContent += `${clean(log.timestamp)},${clean(log.sid)},${clean(log.action)},${clean(log.details)}\n`;
+                });
+
+                downloadCSV(csvContent, `audit_log_${new Date().getTime()}.csv`);
+            };
+
+            // 清空資料庫 (危險操作)
+            const clearStore = (store, setFn, msg) => {
+                if (confirm("確定要清空嗎？此動作無法復原。")) {
+                    setFn([]);
+                    idb.clear(store);
+                    // 若清空候選人，需同時清空歷史紀錄，以免資料不一致
+                    if (store === 'candidates') { setHistory([]); idb.clear('history'); }
+                    logAction('RESET_DATA', `Cleared store: ${store}`);
+                    showToast(msg);
+                }
+            };
+
+            // 系統初始化畫面
+            if (!isSystemReady) {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center text-gold space-y-4">
+                        <div className="spinner w-12 h-12"></div>
+                        <div className="text-xl font-bold animate-pulse">SYSTEM INITIALIZING...</div>
+                        <div className="text-sm text-gray-400">Loading Secure Database</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`min-h-screen font-sans pb-10 transition-colors duration-500 ${isBossMode ? 'boss-mode-bg' : ''}`}>
+                    <AnimatePresence>{toast && <Toast {...toast} onClose={() => setToast(null)} />}</AnimatePresence>
+                    <CountdownOverlay count={countdown} />
+                    {/* Fireworks removed */}
+                    {/* <Fireworks active={showFireworks} onComplete={() => setShowFireworks(false)} /> */}
+
+                    <nav className="fixed top-0 w-full z-40 glass-panel border-b-0 border-t-0 border-x-0 h-16 flex items-center justify-between px-6 transition-all duration-300">
+                        <div className="flex items-center gap-2">
+                            <Icon name="sparkles" className={isBossMode ? "text-white animate-spin" : "text-gold"} />
+                            <span className="font-bold text-2xl tracking-wider gold-gradient-text truncate max-w-[250px] md:max-w-lg">
+                                {customTitle || <><span className="text-gold">EVER</span><span className="text-white">LUCK</span></>}
+                            </span>
+                            {!customTitle && <span className="text-xs px-2 py-0.5 rounded bg-gold/20 text-gold border border-gold/20">v4.0</span>}
+                        </div>
+                        <div className="flex gap-4 items-center">
+                            {/* 統計資訊欄 (Candidate Statistics) - 僅在大螢幕顯示 */}
+                            {effects.showStats && (
+                                <>
+                                    <div className="hidden md:flex items-center gap-4 text-sm">
+                                        <div className="text-right">
+                                            <div className="text-xs text-gray-400">總參加人數</div>
+                                            <div className="text-lg font-mono font-bold text-white"><AnimatedCounter value={candidates.length} /></div>
+                                        </div>
+                                        <div className="h-8 w-px bg-white/10"></div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-gray-400">剩餘候選人</div>
+                                            <div className="text-lg font-mono font-bold text-gold"><AnimatedCounter value={availableCandidates.length} /></div>
+                                        </div>
+                                        <div className="h-8 w-px bg-white/10"></div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-gray-400">已抽出幸運兒</div>
+                                            <div className="text-lg font-mono font-bold text-green-400"><AnimatedCounter value={history.flatMap(h => h.winners).length} /></div>
+                                        </div>
+                                    </div>
+                                    <div className="h-6 w-px bg-white/10 mx-2"></div>
+                                </>
+                            )}
+                            <NavButton active={tab === 'main'} onClick={() => setTab('main')} icon="home" label="首頁" disabled={isRolling} />
+                            <NavButton active={tab === 'help'} onClick={() => setTab('help')} icon="sparkles" label="說明" disabled={isRolling} />
+                            <NavButton active={tab === 'settings'} onClick={() => setShowAdminLogin(true)} icon="settings" label="設定" disabled={isRolling} />
+                        </div>
+                    </nav>
+
+                    {/* 管理員登入視窗 (Admin Login Modal) */}
+                    <AnimatePresence>
+                        {showAdminLogin && (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                                <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-gray-900 border border-gold/30 p-8 rounded-2xl w-full max-w-sm relative shadow-[0_0_50px_rgba(255,215,0,0.15)]">
+                                    <button onClick={() => setShowAdminLogin(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><Icon name="x" /></button>
+                                    <div className="text-center mb-6">
+                                        <div className="mx-auto w-12 h-12 bg-gold/10 rounded-full flex items-center justify-center mb-4 text-gold">
+                                            <Icon name="lock" size={24} />
+                                        </div>
+                                        <h3 className="text-xl font-bold text-white mb-1">管理員登入</h3>
+                                        <p className="text-xs text-gray-400">請輸入密碼以進入設定頁面</p>
+                                    </div>
+                                    <form onSubmit={(e) => {
+                                        e.preventDefault();
+                                        if (adminPassword === '123') {
+                                            setIsAdmin(true);
+                                            setShowAdminLogin(false);
+                                            setTab('settings');
+                                            setAdminPassword('');
+                                            showToast('登入成功', 'success');
+                                        } else {
+                                            showToast('密碼錯誤', 'error');
+                                        }
+                                    }}>
+                                        <input
+                                            type="password"
+                                            value={adminPassword}
+                                            onChange={(e) => setAdminPassword(e.target.value)}
+                                            className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white text-center tracking-widest text-lg focus:border-gold outline-none mb-4"
+                                            placeholder="Password"
+                                            autoFocus
+                                        />
+                                        <button type="submit" className="w-full gold-btn py-3 rounded-lg font-bold text-black">解鎖</button>
+                                    </form>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <main className="pt-24 px-2 md:px-4 max-w-[96%] mx-auto">
+                        <AnimatePresence mode="wait">
+                            {tab === 'main' && (
+                                <motion.div key="main" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
+                                    <div className="glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center gap-4 justify-between border-t border-white/10 relative overflow-hidden">
+                                        {isBossMode && <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-purple-500/20 animate-pulse pointer-events-none"></div>}
+
+                                        {/* 獎項選擇與人數設定 */}
+                                        <div className="flex items-center gap-4 w-full md:w-auto relative z-10">
+                                            <div className="flex-1">
+                                                <label className="text-xs text-goldLight uppercase font-bold block mb-1">選擇獎項</label>
+                                                <select value={currentPrizeId} onChange={(e) => { setCurrentPrizeId(e.target.value); const p = prizes.find(x => x.id === e.target.value); if (p) setDrawCount(p.count); }} className="w-full md:w-96 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-gold outline-none">
+                                                    <option value="" disabled>-- 請選擇 --</option>
+                                                    {prizes.map(p => <option key={p.id} value={p.id}>{p.name} (預設 {p.count} 人)</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="w-24">
+                                                <label className="text-xs text-goldLight uppercase font-bold block mb-1">人數</label>
+                                                <input type="number" min="1" value={drawCount} onChange={(e) => setDrawCount(parseInt(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-gold outline-none text-center" />
+                                            </div>
+                                        </div>
+
+                                        {/* 目前抽出獎項顯示 (Current Prize Display) */}
+                                        {currentPrize && (
+                                            <div className="text-right hidden md:block relative z-10">
+                                                <div className="text-sm text-gray-300">目前抽出獎項</div>
+                                                <div className="text-xl md:text-2xl font-bold text-gold whitespace-nowrap leading-tight">{currentPrize.name}</div>
+                                            </div>
+                                        )}
+                                        <button onClick={handleDraw} disabled={isRolling || availableCandidates.length === 0} className={`relative z-10 w-full md:w-auto px-20 py-3 min-w-[200px] text-lg font-black rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isBossMode ? 'bg-gradient-to-r from-red-600 to-yellow-500 text-white shadow-[0_0_20px_rgba(255,0,0,0.5)] border-2 border-yellow-300' : 'gold-btn'}`}>
+                                            {isRolling ? (
+                                                <span className="flex items-center gap-2">
+                                                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    抽獎中...
+                                                </span>
+                                            ) : isBossMode ? '🔥 BOSS DRAW' : '抽 獎'}
+                                        </button>
+                                    </div>
+
+
+
+                                    <div className="relative w-full h-[50vh] min-h-[400px] glass-panel rounded-3xl overflow-hidden flex flex-col items-center justify-center p-8 border border-gold/10 shadow-[0_0_50px_rgba(0,0,0,0.3)]">
+                                        {isRolling ? <RollingText candidates={availableCandidates} showFullInfo={effects.showFullInfo} duration={isBossMode ? 1500 : 3500} onTick={() => { if (effects.sound && soundEngineRef.current) soundEngineRef.current.playRoll(); }} /> : currentWinners.length > 0 ? (
+
+                                            // 贏家列表顯示 (Grid Layout)
+                                            <motion.div className="w-full h-full flex flex-wrap justify-center content-start gap-4 p-2 overflow-y-auto" initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.1 } } }}>
+                                                {currentWinners.map((w, idx) => {
+                                                    const isLarge = currentWinners.length <= 3;
+                                                    // RWD Grid: 計算每個卡片的寬度，確保置中
+                                                    // 1-3 人: Flex 自動置中
+                                                    // 4+ 人: 使用百分比寬度排版 (32% -> 3列, 24% -> 4列, 19% -> 5列)
+                                                    const widthClass = currentWinners.length <= 2 ? 'w-full md:w-1/2 max-w-2xl' :
+                                                        currentWinners.length === 3 ? 'w-full md:w-[32%]' :
+                                                            'w-full md:w-[32%] lg:w-[24%] xl:w-[19%]';
+
+                                                    return (
+                                                        <div key={w.id} className={widthClass}>
+                                                            <WinnerCard
+                                                                winner={w}
+                                                                index={idx}
+                                                                total={currentWinners.length}
+                                                                onVoid={handleVoid}
+                                                                showFullInfo={effects.showFullInfo}
+                                                                allowRedraw={effects.allowRedraw}
+                                                                seqNo={effects.showWinnerSeq ? idx + 1 : null}
+                                                                typewriter={effects.typewriter}
+                                                                typewriterSpeedDept={effects.typewriterSpeedDept}
+                                                                typewriterSpeedName={effects.typewriterSpeedName}
+                                                                isRolling={w.id === redrawingId}
+                                                                candidates={availableCandidates}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </motion.div>
+                                        ) : (
+                                            <div className="text-center opacity-40">
+                                                <Icon name="sparkles" size={64} className="mx-auto mb-4 text-gold" />
+                                                <div className="text-2xl font-bold text-goldLight">{isBossMode ? '🔥 BOSS BONUS MODE 🔥' : '準備開始'}</div>
+                                                <div className="text-sm mt-2 font-mono text-gray-400">[ 按下空白鍵開始 ]</div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="glass-panel rounded-2xl p-6">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="text-xl font-bold flex items-center gap-2 text-white"><Icon name="users" className="text-gold" /> 獲獎紀錄</h3>
+                                            {history.length > 0 && <button onClick={handleExport} className="text-sm flex items-center gap-1 text-gold hover:text-white transition-colors"><Icon name="download" size={16} /> 匯出 CSV</button>}
+                                        </div>
+
+                                        {/* 歷史紀錄搜尋與篩選 (Search and Filter) */}
+                                        {history.length > 0 && (
+                                            <div className="flex flex-col md:flex-row gap-3 mb-4">
+                                                <select
+                                                    value={historyPrizeFilter}
+                                                    onChange={(e) => { setHistoryPrizeFilter(e.target.value); setHistoryPage(0); }}
+                                                    className="bg-black/30 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-gold outline-none"
+                                                >
+                                                    <option value="">所有獎項</option>
+                                                    {[...new Set(history.map(h => h.prizeName))].map(name => (
+                                                        <option key={name} value={name}>{name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead><tr className="border-b border-white/10 text-gray-400 text-sm"><th className="py-3 px-4">時間</th><th className="py-3 px-4">獎項</th><th className="py-3 px-4">得獎者</th></tr></thead>
+                                                <tbody>
+                                                    {(() => {
+                                                        const PAGE_SIZE = 20;
+                                                        const filtered = history.filter(h => {
+                                                            const matchesPrize = !historyPrizeFilter || h.prizeName === historyPrizeFilter;
+                                                            return matchesPrize;
+                                                        });
+                                                        const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+                                                        const paged = filtered.slice(historyPage * PAGE_SIZE, (historyPage + 1) * PAGE_SIZE);
+
+                                                        return (
+                                                            <>
+                                                                {paged.map((h) => (
+                                                                    <tr key={h.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                                                        <td className="py-3 px-4 font-mono text-xs text-gray-400">{h.timestamp}</td>
+                                                                        <td className="py-3 px-4 text-gold font-bold">{h.prizeName}</td>
+                                                                        <td className="py-3 px-4">
+                                                                            <div className="flex flex-wrap gap-2">
+                                                                                {h.winners.map(w => (
+                                                                                    <div key={w.id} className="bg-black/30 px-3 py-1.5 rounded border border-white/10 flex items-center gap-2 mb-1 last:mb-0">
+                                                                                        <span className="text-goldLight font-bold text-xs bg-white/10 px-1.5 py-0.5 rounded">{w.dept || 'Unknown'}</span>
+                                                                                        <span className="text-white text-sm">
+                                                                                            {effects.showFullInfo ? `${w.name} (${w.code})` : maskName(w.name)}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                                {paged.length === 0 && (
+                                                                    <tr><td colSpan="3" className="py-8 text-center text-gray-500">
+                                                                        {history.length === 0 ? '尚無紀錄' : '無符合條件的記錄'}
+                                                                    </td></tr>
+                                                                )}
+                                                                {/* 分頁控制 (Pagination Controls) */}
+                                                                {totalPages > 1 && (
+                                                                    <tr>
+                                                                        <td colSpan="3" className="py-4">
+                                                                            <div className="flex items-center justify-center gap-2">
+                                                                                <button
+                                                                                    onClick={() => setHistoryPage(p => Math.max(0, p - 1))}
+                                                                                    disabled={historyPage === 0}
+                                                                                    className="px-3 py-1 rounded bg-black/30 text-white text-sm disabled:opacity-30 hover:bg-gold/20 transition-colors"
+                                                                                >
+                                                                                    上一頁
+                                                                                </button>
+                                                                                <span className="text-sm text-gray-400">
+                                                                                    第 {historyPage + 1} / {totalPages} 頁 (共 {filtered.length} 筆)
+                                                                                </span>
+                                                                                <button
+                                                                                    onClick={() => setHistoryPage(p => Math.min(totalPages - 1, p + 1))}
+                                                                                    disabled={historyPage >= totalPages - 1}
+                                                                                    className="px-3 py-1 rounded bg-black/30 text-white text-sm disabled:opacity-30 hover:bg-gold/20 transition-colors"
+                                                                                >
+                                                                                    下一頁
+                                                                                </button>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+
+
+
+                            {tab === 'settings' && (
+                                <motion.div key="settings" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="grid md:grid-cols-2 gap-6">
+                                    {/* System Settings */}
+                                    <div className="glass-panel p-6 rounded-2xl space-y-6 md:col-span-2">
+                                        <h3 className="text-xl font-bold flex items-center gap-2 text-white border-l-4 border-blue-500 pl-3">系統設定 (System)</h3>
+                                        <div className="grid md:grid-cols-2 gap-8">
+                                            <div className="space-y-4">
+                                                <label className="block text-sm text-gray-400">活動標題 (Event Title)</label>
+                                                <input type="text" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="請輸入活動名稱..." className="w-full bg-black/30 border border-white/10 rounded px-3 py-2 text-white focus:border-gold outline-none" />
+
+                                                <div className="space-y-3 pt-2">
+                                                    <label className="block text-sm text-gray-400">介面主題 (Theme)</label>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {Object.values(THEMES).map(t => (
+                                                            <button key={t.id} onClick={() => { setTheme(t.id); if (t.id === 'high-contrast') setIsHighContrast(true); else setIsHighContrast(false); }} className={`px-2 py-2 rounded text-xs border transition-all ${theme === t.id ? 'bg-gold text-red-900 border-gold font-bold' : 'border-white/20 text-gray-400 hover:border-gold/50'}`}>
+                                                                {t.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <label className="block text-sm text-gray-400">特效開關 (Effects)</label>
+                                                <div className="grid gap-3">
+                                                    <ToggleSwitch label="開獎音效 (Sound)" checked={effects.sound} onChange={(v) => setEffects(prev => ({ ...prev, sound: v }))} />
+                                                    <ToggleSwitch label="倒數動畫 (Countdown - 1人限定)" checked={effects.countdown} onChange={(v) => setEffects(prev => ({ ...prev, countdown: v }))} />
+                                                    <div className="space-y-2">
+                                                        <ToggleSwitch label="中獎特效 (逐字顯示 - 1人限定)" checked={effects.typewriter} onChange={(v) => setEffects(prev => ({ ...prev, typewriter: v }))} />
+                                                        {effects.typewriter && (
+                                                            <div className="ml-8 grid grid-cols-2 gap-3 p-3 bg-white/5 rounded border border-white/10">
+                                                                <div>
+                                                                    <label className="text-xs text-goldLight block mb-1">部門顯示速度 (秒/字)</label>
+                                                                    <input type="number" step="0.1" min="0.1" value={effects.typewriterSpeedDept !== undefined ? effects.typewriterSpeedDept : 1.0} onChange={(e) => setEffects(prev => ({ ...prev, typewriterSpeedDept: parseFloat(e.target.value) }))} className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white text-sm focus:border-gold outline-none text-center" />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs text-goldLight block mb-1">姓名顯示速度 (秒/字)</label>
+                                                                    <input type="number" step="0.1" min="0.1" value={effects.typewriterSpeedName !== undefined ? effects.typewriterSpeedName : 2.0} onChange={(e) => setEffects(prev => ({ ...prev, typewriterSpeedName: parseFloat(e.target.value) }))} className="w-full bg-black/50 border border-white/20 rounded px-2 py-1 text-white text-sm focus:border-gold outline-none text-center" />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <ToggleSwitch label="中獎彩帶 - 一般開獎" checked={effects.confetti} onChange={(v) => setEffects(prev => ({ ...prev, confetti: v }))} />
+                                                    <ToggleSwitch label="顯示統計數據 (Statistics)" checked={effects.showStats} onChange={(v) => setEffects(prev => ({ ...prev, showStats: v }))} />
+                                                    <ToggleSwitch label="顯示完整的姓名資訊" checked={effects.showFullInfo} onChange={(v) => setEffects(prev => ({ ...prev, showFullInfo: v }))} />
+                                                    <ToggleSwitch label="顯示中獎流水號 (Sequence No.)" checked={effects.showWinnerSeq} onChange={(v) => setEffects(prev => ({ ...prev, showWinnerSeq: v }))} />
+                                                    <ToggleSwitch label="允許重複中獎 (Multiple Wins)" checked={effects.allowMultipleWins} onChange={(v) => setEffects(prev => ({ ...prev, allowMultipleWins: v }))} />
+                                                    <ToggleSwitch label="允許重抽 (Allow Redraw)" checked={effects.allowRedraw} onChange={(v) => setEffects(prev => ({ ...prev, allowRedraw: v }))} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="glass-panel p-6 rounded-2xl space-y-4">
+                                        <h3 className="text-xl font-bold border-l-4 border-gold pl-3 text-white flex justify-between items-center">
+                                            <span>候選人名單</span>
+                                            <div className="flex items-center gap-2 text-xs">
+                                                {candidates.length > 0 && <button onClick={() => handleExportData('candidates')} className="flex items-center gap-1 text-gold hover:text-white transition-colors mr-2"><Icon name="download" size={14} /> 匯出 CSV</button>}
+                                                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="px-2 py-1 bg-white/10 rounded disabled:opacity-30">&lt;</button>
+                                                <span>Page {page + 1}</span>
+                                                <button onClick={() => setPage(p => (page + 1) * 50 < candidates.length ? p + 1 : p)} disabled={(page + 1) * 50 >= candidates.length} className="px-2 py-1 bg-white/10 rounded disabled:opacity-30">&gt;</button>
+                                            </div>
+                                        </h3>
+                                        <div className="p-8 border-2 border-dashed border-red-800 rounded-xl text-center hover:border-gold hover:bg-white/5 transition-all relative group">
+                                            <input type="file" accept=".csv" onChange={(e) => handleFileUpload(e, 'candidates')} disabled={isLoading} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
+                                            <Icon name="upload" size={32} className="mx-auto mb-2 text-gray-400 group-hover:text-gold" />
+                                            <p className="text-sm text-gray-300">點擊匯入候選人 CSV</p>
+                                        </div>
+                                        <div className="h-60 overflow-y-auto bg-black/20 rounded-lg p-2 border border-white/5">
+                                            <table className="w-full text-sm">
+                                                <thead className="text-gray-400 border-b border-white/10"><tr><th className="py-2 text-left pl-2">姓名</th><th className="py-2 text-right">編號</th><th className="py-2 text-right pr-2">部門</th></tr></thead>
+                                                <tbody>
+                                                    {candidates.slice(page * 50, (page + 1) * 50).map(c => (
+                                                        <tr key={c.id} className="border-b border-white/5 hover:bg-white/5"><td className="py-2 pl-2 text-gray-200">{maskName(c.name)}</td><td className="py-2 text-right font-mono text-xs text-gray-400">{c.code}</td><td className="py-2 text-right pr-2 text-gray-400 text-xs">{c.dept}</td></tr>
+                                                    ))}
+                                                    {candidates.length === 0 && <tr><td colSpan="2" className="py-8 text-center text-gray-500">無資料</td></tr>}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <button onClick={() => clearStore('candidates', setCandidates, "已清空候選人與紀錄")} className="w-full py-2 border border-red-500/50 text-red-400 rounded hover:bg-red-500/10 text-sm flex items-center justify-center gap-2"><Icon name="trash" size={14} /> 清空所有資料</button>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <div className="glass-panel p-6 rounded-2xl space-y-4">
+                                            <h3 className="text-xl font-bold border-l-4 border-crimson pl-3 text-white flex justify-between items-center">
+                                                <span>獎項設定</span>
+                                                {prizes.length > 0 && <button onClick={() => handleExportData('prizes')} className="text-xs flex items-center gap-1 text-gold hover:text-white transition-colors"><Icon name="download" size={14} /> 匯出 CSV</button>}
+                                            </h3>
+                                            <div className="p-8 border-2 border-dashed border-red-800 rounded-xl text-center hover:border-crimson hover:bg-white/5 transition-all relative group">
+                                                <input type="file" accept=".csv" onChange={(e) => handleFileUpload(e, 'prizes')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                                <Icon name="upload" size={32} className="mx-auto mb-2 text-gray-400 group-hover:text-crimson" />
+                                                <p className="text-sm text-gray-300">點擊匯入獎項 CSV</p>
+                                            </div>
+                                            <div className="max-h-40 overflow-y-auto bg-black/20 rounded-lg p-2 border border-white/5">
+                                                <table className="w-full text-sm">
+                                                    <thead className="text-gray-400 border-b border-white/10"><tr><th className="py-2 text-left pl-2">獎項名稱</th><th className="py-2 text-right pr-2">人數</th></tr></thead>
+                                                    <tbody>{prizes.map(p => <tr key={p.id} className="border-b border-white/5 hover:bg-white/5"><td className="py-2 pl-2 text-gold">{p.name}</td><td className="py-2 text-right pr-2 font-mono text-gray-300">{p.count}</td></tr>)}</tbody>
+                                                </table>
+                                            </div>
+                                            <button onClick={() => clearStore('prizes', setPrizes, "已清空獎項")} className="w-full py-2 border border-red-500/50 text-red-400 rounded hover:bg-red-500/10 text-sm flex items-center justify-center gap-2"><Icon name="trash" size={14} /> 清空獎項</button>
+                                        </div>
+
+                                    </div>
+
+                                    {/* System Audit Section */}
+                                    <div className="glass-panel p-6 rounded-2xl space-y-4 md:col-span-2 border border-blue-500/30">
+                                        <h3 className="text-xl font-bold border-l-4 border-blue-400 pl-3 text-white flex justify-between items-center">
+                                            <span>系統維護與稽核 (Maintenance)</span>
+                                            <button onClick={handleExportAudit} className="text-sm px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/50 rounded flex items-center gap-2 transition-all">
+                                                <Icon name="download" size={16} /> 匯出系統稽核紀錄 (Audit Log)
+                                            </button>
+                                        </h3>
+                                        <p className="text-sm text-gray-400">
+                                            稽核紀錄包含所有抽獎、重抽、資料匯入與清空的操作歷程，可用於驗證活動的公正性。
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            )}
+                            {tab === 'help' && <motion.div key="help" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}><HelpContent /></motion.div>}
+                        </AnimatePresence>
+                    </main>
+                </div >
+            );
+        };
+
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
